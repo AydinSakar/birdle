@@ -33,9 +33,11 @@ class Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 60,
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 500),
+      curve: Curves.bounceIn,
       height: 60,
+      width: 60,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         color: switch (hitType) {
@@ -63,30 +65,87 @@ class GamePage extends StatefulWidget {
 }
 
 class _GamePageState extends State<GamePage> {
-  // This manages game logic, and is out of scope for this lesson.
   final Game _game = Game();
+  String _message = 'Guess the 5-letter word';
+
+  void _submitGuess(String guess) {
+    if (_game.didWin || _game.didLose) {
+      setState(() {
+        _message = 'Game over! Press Restart to play again.';
+      });
+      return;
+    }
+
+    final normalized = guess.trim().toLowerCase();
+
+    if (normalized.length != 5) {
+      setState(() {
+        _message = 'Guess must be exactly 5 letters.';
+      });
+      return;
+    }
+
+    if (!_game.isLegalGuess(normalized)) {
+      setState(() {
+        _message = 'Not a legal guess. Try a valid word.';
+      });
+      return;
+    }
+
+    setState(() {
+      _game.guess(normalized);
+      if (_game.didWin) {
+        _message = 'You win! The word was ${_game.hiddenWord}.';
+      } else if (_game.didLose) {
+        _message = 'You lose! The word was ${_game.hiddenWord}.';
+      } else {
+        _message = 'Guesses left: ${_game.guessesRemaining}';
+      }
+    });
+  }
+
+  void _resetGame() {
+    setState(() {
+      _game.resetGame();
+      _message = 'Guess the 5-letter word';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
-        spacing: 5.0,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          for (var guess in _game.guesses)
-            Row(
-              spacing: 5.0,
-              children: [
-                for (var letter in guess) Tile(letter.char, letter.type),
-              ],
+          Text(_message, style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var guess in _game.guesses) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (var letter in guess) ...[
+                          Tile(letter.char, letter.type),
+                          const SizedBox(width: 6),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              ),
             ),
-          GuessInput(
-            onSubmitGuess: (String guess) {
-              setState(() {
-                _game.guess(guess);
-                print(guess); // Temporary
-              });
-            },
+          ),
+          GuessInput(onSubmitGuess: _submitGuess),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: _resetGame,
+            icon: Icon(Icons.refresh),
+            label: Text('Restart'),
           ),
         ],
       ),
@@ -104,8 +163,8 @@ class GuessInput extends StatefulWidget {
 }
 
 class _GuessInputState extends State<GuessInput> {
-
   late final TextEditingController _textEditingController;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -116,18 +175,16 @@ class _GuessInputState extends State<GuessInput> {
   @override
   void dispose() {
     _textEditingController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  final FocusNode _focusNode = FocusNode();
-
-  late void Function(String) onSubmitGuess;
-
   void _onSubmit(String guess) {
+    final trimmed = guess.trim();
+    if (trimmed.isEmpty) return;
+    widget.onSubmitGuess(trimmed);
     _textEditingController.clear();
     _focusNode.requestFocus();
-    print(_textEditingController.text); // Temporary
-    onSubmitGuess(guess);
   }
 
   @override

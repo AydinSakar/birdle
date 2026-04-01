@@ -103,6 +103,7 @@ class Game {
 
   void addGuessToList(Word guess) {
     final i = _guesses.indexWhere((word) => word.isEmpty);
+    if (i == -1) return;
     _guesses[i] = guess;
   }
 }
